@@ -11,6 +11,7 @@ type Conf struct {
 	DBName        string `mapstructure:"DB_NAME"`
 	WebServerPort string `mapstructure:"WEB_SERVER_PORT"`
 	JWTSecret     string `mapstructure:"JWT_SECRET"`
+	NightlyLimit  int64  `mapstructure:"NIGHTLY_LIMIT"`
 }
 
 func LoadConfig(path string) (*Conf, error) {
@@ -32,5 +33,10 @@ func LoadConfig(path string) (*Conf, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if cfg.NightlyLimit == 0 {
+		cfg.NightlyLimit = 100000 // Default 1000.00
+	}
+
 	return cfg, nil
 }

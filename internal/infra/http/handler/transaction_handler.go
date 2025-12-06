@@ -21,12 +21,21 @@ func (h *TransactionHandler) MakeTransfer(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	accountID, ok := r.Context().Value("account_id").(string)
+	if !ok || accountID == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	input.FromAccountID = accountID
+
 	output, err := h.MakeTransferUseCase.Execute(r.Context(), input)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(output)

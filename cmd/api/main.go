@@ -48,7 +48,7 @@ func main() {
 	// Use Cases
 	createAccountUseCase := usecase.NewCreateAccountUseCase(accountRepo)
 	makeDepositUseCase := usecase.NewMakeDepositUseCase(accountRepo)
-	makeTransferUseCase := usecase.NewMakeTransferUseCase(transactionRepo, accountRepo)
+	makeTransferUseCase := usecase.NewMakeTransferUseCase(transactionRepo, accountRepo, conf.NightlyLimit)
 	loginUseCase := usecase.NewLoginUseCase(accountRepo, tokenService)
 
 	// Handlers
