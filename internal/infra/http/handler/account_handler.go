@@ -10,13 +10,15 @@ import (
 
 type AccountHandler struct {
 	CreateAccountUseCase *usecase.CreateAccountUseCase
-	MakeDepositUseCase   *usecase.MakeDepositUseCase // Novo campo
+	MakeDepositUseCase   *usecase.MakeDepositUseCase
+	GetBalanceUseCase    *usecase.GetBalanceUseCase
 }
 
-func NewAccountHandler(createUC *usecase.CreateAccountUseCase, depositUC *usecase.MakeDepositUseCase) *AccountHandler {
+func NewAccountHandler(createUC *usecase.CreateAccountUseCase, depositUC *usecase.MakeDepositUseCase, balanceUC *usecase.GetBalanceUseCase) *AccountHandler {
 	return &AccountHandler{
 		CreateAccountUseCase: createUC,
 		MakeDepositUseCase:   depositUC,
+		GetBalanceUseCase:    balanceUC,
 	}
 }
 
@@ -31,7 +33,6 @@ func NewAccountHandler(createUC *usecase.CreateAccountUseCase, depositUC *usecas
 // @Failure      400  {object}  map[string]string
 // @Router       /accounts [post]
 func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
-	// ... (código existente permanece igual)
 	var input usecase.CreateAccountInputDTO
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -40,12 +41,11 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 	output, err := h.CreateAccountUseCase.Execute(r.Context(), input)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(output)
 }
@@ -62,11 +62,6 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 // @Router       /accounts/{account_id}/deposit [post]
 func (h *AccountHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	accountID := chi.URLParam(r, "account_id")
-	if accountID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	var input usecase.MakeDepositInputDTO
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -74,14 +69,42 @@ func (h *AccountHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	}
 	input.AccountID = accountID
 
-	output, err := h.MakeDepositUseCase.Execute(r.Context(), input)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	if _, err := h.MakeDepositUseCase.Execute(r.Context(), input); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+}
+
+// GetBalance godoc
+// @Summary      Consultar Saldo
+// @Description  Retorna o saldo atualizado da conta autenticada
+// @Tags         Accounts
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        account_id path string true "ID da Conta"
+// @Success      200  {object}  usecase.GetBalanceOutputDTO
+// @Failure      404  {object}  map[string]string
+// @Router       /accounts/{account_id}/balance [get]
+func (h *AccountHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
+	accountID := chi.URLParam(r, "account_id")
+
+	// Segurança: O ID da URL deve bater com o ID do Token JWT
+	tokenAccountID, ok := r.Context().Value("account_id").(string)
+	if !ok || tokenAccountID != accountID {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	output, err := h.GetBalanceUseCase.Execute(r.Context(), accountID)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(output)
 }
