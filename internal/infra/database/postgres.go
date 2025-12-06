@@ -19,13 +19,14 @@ type Config struct {
 }
 
 func NewPostgresConnection(cfg *Config) (*gorm.DB, error) {
+	// CORREÇÃO: Adicionado cfg.Port que estava faltando
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
-		cfg.Host, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
+		cfg.Host, cfg.User, cfg.Password, cfg.DBName, cfg.Port, cfg.SSLMode,
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+		Logger: logger.Default.LogMode(logger.Info), // Alterei para Info para vermos as queries no log
 	})
 	if err != nil {
 		return nil, err

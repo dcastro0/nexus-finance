@@ -36,20 +36,33 @@ func main() {
 
 	runMigrations(db)
 
+	// Repositories
 	accountRepo := repository.NewAccountRepositoryPostgres(db)
+	transactionRepo := repository.NewTransactionRepositoryPostgres(db)
+
+	// Use Cases
 	createAccountUseCase := usecase.NewCreateAccountUseCase(accountRepo)
-	accountHandler := handler.NewAccountHandler(createAccountUseCase)
+	makeDepositUseCase := usecase.NewMakeDepositUseCase(accountRepo) // Novo
+	makeTransferUseCase := usecase.NewMakeTransferUseCase(transactionRepo, accountRepo)
+
+	// Handlers
+	// Atualizado com o novo UseCase de Depósito
+	accountHandler := handler.NewAccountHandler(createAccountUseCase, makeDepositUseCase)
+	transactionHandler := handler.NewTransactionHandler(makeTransferUseCase)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	// Rotas
 	r.Post("/accounts", accountHandler.CreateAccount)
+	r.Post("/accounts/{account_id}/deposit", accountHandler.Deposit) // Nova rota
+	r.Post("/transactions", transactionHandler.MakeTransfer)
 
 	fmt.Printf("Nexus Finance API running on port %s\n", conf.WebServerPort)
 	http.ListenAndServe(fmt.Sprintf(":%s", conf.WebServerPort), r)
 }
 
 func runMigrations(db *gorm.DB) {
-	db.AutoMigrate(&entity.Account{})
+	db.AutoMigrate(&entity.Account{}, &entity.Transaction{})
 }
