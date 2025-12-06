@@ -38,36 +38,35 @@ func main() {
 
 	runMigrations(db)
 
-	// Services
-	tokenService := security.NewTokenService(conf.JWTSecret, "nexus-finance-api")
-
-	// Repositories
 	accountRepo := repository.NewAccountRepositoryPostgres(db)
 	transactionRepo := repository.NewTransactionRepositoryPostgres(db)
 
-	// Use Cases
+	tokenService := security.NewTokenService(conf.JWTSecret, "nexus-finance-api")
+
 	createAccountUseCase := usecase.NewCreateAccountUseCase(accountRepo)
+	loginUseCase := usecase.NewLoginUseCase(accountRepo, tokenService)
 	makeDepositUseCase := usecase.NewMakeDepositUseCase(accountRepo)
 	makeTransferUseCase := usecase.NewMakeTransferUseCase(transactionRepo, accountRepo, conf.NightlyLimit)
-	loginUseCase := usecase.NewLoginUseCase(accountRepo, tokenService)
+	getExtractUseCase := usecase.NewGetExtractUseCase(transactionRepo)
 
-	// Handlers
 	accountHandler := handler.NewAccountHandler(createAccountUseCase, makeDepositUseCase)
-	transactionHandler := handler.NewTransactionHandler(makeTransferUseCase)
 	authHandler := handler.NewAuthHandler(loginUseCase)
+	transactionHandler := handler.NewTransactionHandler(makeTransferUseCase, getExtractUseCase)
+
 	authMiddleware := customMiddleware.NewAuthMiddleware(tokenService)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Rotas
 	r.Post("/accounts", accountHandler.CreateAccount)
-	r.Post("/accounts/{account_id}/deposit", accountHandler.Deposit)
-	r.Post("/transactions", transactionHandler.MakeTransfer)
 	r.Post("/login", authHandler.Login)
+	r.Post("/accounts/{account_id}/deposit", accountHandler.Deposit)
+
 	r.Group(func(r chi.Router) {
 		r.Use(authMiddleware.Handle)
 		r.Post("/transactions", transactionHandler.MakeTransfer)
+		r.Get("/transactions", transactionHandler.GetExtract)
 	})
 
 	fmt.Printf("Nexus Finance API running on port %s\n", conf.WebServerPort)

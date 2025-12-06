@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/dcastro0/nexus-finance/internal/domain/entity"
 	domainRepo "github.com/dcastro0/nexus-finance/internal/domain/repository"
@@ -20,10 +21,20 @@ func (r *TransactionRepositoryPostgres) Create(ctx context.Context, transaction 
 	return r.DB.WithContext(ctx).Create(transaction).Error
 }
 
+func (r *TransactionRepositoryPostgres) FindAllByAccount(ctx context.Context, accountID string, startDate time.Time, limit, offset int) ([]entity.Transaction, error) {
+	var transactions []entity.Transaction
+	err := r.DB.WithContext(ctx).
+		Where("(from_account_id = ? OR to_account_id = ?) AND created_at >= ?", accountID, accountID, startDate).
+		Order("created_at desc").
+		Limit(limit).
+		Offset(offset).
+		Find(&transactions).Error
+	return transactions, err
+}
+
 func (r *TransactionRepositoryPostgres) Transfer(ctx context.Context, t *entity.Transaction) error {
 	return r.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var fromAccount entity.Account
-		// Verifica conta origem
 		if err := tx.First(&fromAccount, "id = ?", t.FromAccountID).Error; err != nil {
 			return err
 		}
@@ -32,13 +43,11 @@ func (r *TransactionRepositoryPostgres) Transfer(ctx context.Context, t *entity.
 			return domainRepo.ErrInsufficientFunds
 		}
 
-		// Verifica conta destino
 		var toAccount entity.Account
 		if err := tx.First(&toAccount, "id = ?", t.ToAccountID).Error; err != nil {
 			return err
 		}
 
-		// Débito Origem
 		oldVersionFrom := fromAccount.Version
 		fromAccount.Balance -= t.Amount
 		fromAccount.Version++
@@ -50,7 +59,6 @@ func (r *TransactionRepositoryPostgres) Transfer(ctx context.Context, t *entity.
 			return domainRepo.ErrConcurrency
 		}
 
-		// Crédito Destino
 		oldVersionTo := toAccount.Version
 		toAccount.Balance += t.Amount
 		toAccount.Version++
