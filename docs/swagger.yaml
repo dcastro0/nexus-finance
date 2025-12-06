@@ -1,0 +1,246 @@
+basePath: /
+definitions:
+  usecase.CreateAccountInputDTO:
+    properties:
+      cpf:
+        type: string
+      name:
+        type: string
+      secret:
+        type: string
+    type: object
+  usecase.CreateAccountOutputDTO:
+    properties:
+      balance:
+        type: integer
+      cpf:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  usecase.ExtractTransactionDTO:
+    properties:
+      amount:
+        type: integer
+      created_at:
+        type: string
+      from_account_id:
+        type: string
+      id:
+        type: string
+      to_account_id:
+        type: string
+      type:
+        type: string
+    type: object
+  usecase.GetExtractOutputDTO:
+    properties:
+      transactions:
+        items:
+          $ref: '#/definitions/usecase.ExtractTransactionDTO'
+        type: array
+    type: object
+  usecase.LoginInputDTO:
+    properties:
+      cpf:
+        type: string
+      password:
+        type: string
+    type: object
+  usecase.LoginOutputDTO:
+    properties:
+      access_token:
+        type: string
+    type: object
+  usecase.MakeDepositInputDTO:
+    properties:
+      account_id:
+        type: string
+      amount:
+        type: integer
+    type: object
+  usecase.MakeTransferInputDTO:
+    properties:
+      amount:
+        type: integer
+      from_account_id:
+        type: string
+      to_account_id:
+        type: string
+    type: object
+  usecase.MakeTransferOutputDTO:
+    properties:
+      created_at:
+        type: string
+      status:
+        type: string
+      transaction_id:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: suporte@nexus.finance
+    name: Suporte Nexus
+  description: API de serviços bancários do Nexus Finance Ecosystem (Core Banking).
+  termsOfService: http://swagger.io/terms/
+  title: Nexus Finance API
+  version: "1.0"
+paths:
+  /accounts:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova conta bancária com saldo inicial zero
+      parameters:
+      - description: Dados da conta
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/usecase.CreateAccountInputDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/usecase.CreateAccountOutputDTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Criar nova conta
+      tags:
+      - Accounts
+  /accounts/{account_id}/deposit:
+    post:
+      consumes:
+      - application/json
+      description: Adiciona fundos a uma conta existente
+      parameters:
+      - description: ID da Conta
+        in: path
+        name: account_id
+        required: true
+        type: string
+      - description: Valor do depósito
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/usecase.MakeDepositInputDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Realizar Depósito
+      tags:
+      - Accounts
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Autentica o usuário via CPF e Senha e retorna um token JWT
+      parameters:
+      - description: Credenciais de acesso
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/usecase.LoginInputDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/usecase.LoginOutputDTO'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Autenticação de Usuário
+      tags:
+      - Auth
+  /transactions:
+    get:
+      consumes:
+      - application/json
+      description: Retorna o histórico de transações com paginação. Requer Token JWT.
+      parameters:
+      - description: Dias de histórico (default 7)
+        in: query
+        name: days
+        type: integer
+      - description: Número da página (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Itens por página (default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/usecase.GetExtractOutputDTO'
+      security:
+      - BearerAuth: []
+      summary: Extrato Bancário
+      tags:
+      - Transactions
+    post:
+      consumes:
+      - application/json
+      description: Realiza transferência entre contas internas. Requer Token JWT.
+      parameters:
+      - description: Dados da transferência (from_account_id é ignorado, usa-se o
+          do token)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/usecase.MakeTransferInputDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/usecase.MakeTransferOutputDTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Transferência P2P
+      tags:
+      - Transactions
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

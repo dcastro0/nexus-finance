@@ -15,6 +15,16 @@ func NewAuthHandler(loginUseCase *usecase.LoginUseCase) *AuthHandler {
 	return &AuthHandler{LoginUseCase: loginUseCase}
 }
 
+// Login godoc
+// @Summary      Autenticação de Usuário
+// @Description  Autentica o usuário via CPF e Senha e retorna um token JWT
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body usecase.LoginInputDTO true "Credenciais de acesso"
+// @Success      200  {object}  usecase.LoginOutputDTO
+// @Failure      401  {object}  map[string]string
+// @Router       /login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var input usecase.LoginInputDTO
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {

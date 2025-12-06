@@ -20,6 +20,18 @@ func NewTransactionHandler(makeTransferUC *usecase.MakeTransferUseCase, getExtra
 	}
 }
 
+// MakeTransfer godoc
+// @Summary      Transferência P2P
+// @Description  Realiza transferência entre contas internas. Requer Token JWT.
+// @Tags         Transactions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body usecase.MakeTransferInputDTO true "Dados da transferência (from_account_id é ignorado, usa-se o do token)"
+// @Success      201  {object}  usecase.MakeTransferOutputDTO
+// @Failure      400  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /transactions [post]
 func (h *TransactionHandler) MakeTransfer(w http.ResponseWriter, r *http.Request) {
 	var input usecase.MakeTransferInputDTO
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -46,6 +58,18 @@ func (h *TransactionHandler) MakeTransfer(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(output)
 }
 
+// GetExtract godoc
+// @Summary      Extrato Bancário
+// @Description  Retorna o histórico de transações com paginação. Requer Token JWT.
+// @Tags         Transactions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        days   query int false "Dias de histórico (default 7)"
+// @Param        page   query int false "Número da página (default 1)"
+// @Param        limit  query int false "Itens por página (default 10)"
+// @Success      200  {object}  usecase.GetExtractOutputDTO
+// @Router       /transactions [get]
 func (h *TransactionHandler) GetExtract(w http.ResponseWriter, r *http.Request) {
 	accountID, ok := r.Context().Value("account_id").(string)
 	if !ok || accountID == "" {
