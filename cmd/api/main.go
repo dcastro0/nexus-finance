@@ -12,8 +12,10 @@ import (
 	"github.com/dcastro0/nexus-finance/internal/domain/entity"
 	"github.com/dcastro0/nexus-finance/internal/infra/database"
 	"github.com/dcastro0/nexus-finance/internal/infra/http/handler"
+	customMiddleware "github.com/dcastro0/nexus-finance/internal/infra/http/middleware"
 	"github.com/dcastro0/nexus-finance/internal/infra/repository"
 	"github.com/dcastro0/nexus-finance/internal/usecase"
+	"github.com/dcastro0/nexus-finance/pkg/security"
 )
 
 func main() {
@@ -36,28 +38,37 @@ func main() {
 
 	runMigrations(db)
 
+	// Services
+	tokenService := security.NewTokenService(conf.JWTSecret, "nexus-finance-api")
+
 	// Repositories
 	accountRepo := repository.NewAccountRepositoryPostgres(db)
 	transactionRepo := repository.NewTransactionRepositoryPostgres(db)
 
 	// Use Cases
 	createAccountUseCase := usecase.NewCreateAccountUseCase(accountRepo)
-	makeDepositUseCase := usecase.NewMakeDepositUseCase(accountRepo) // Novo
+	makeDepositUseCase := usecase.NewMakeDepositUseCase(accountRepo)
 	makeTransferUseCase := usecase.NewMakeTransferUseCase(transactionRepo, accountRepo)
+	loginUseCase := usecase.NewLoginUseCase(accountRepo, tokenService)
 
 	// Handlers
-	// Atualizado com o novo UseCase de Depósito
 	accountHandler := handler.NewAccountHandler(createAccountUseCase, makeDepositUseCase)
 	transactionHandler := handler.NewTransactionHandler(makeTransferUseCase)
-
+	authHandler := handler.NewAuthHandler(loginUseCase)
+	authMiddleware := customMiddleware.NewAuthMiddleware(tokenService)
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	// Rotas
 	r.Post("/accounts", accountHandler.CreateAccount)
-	r.Post("/accounts/{account_id}/deposit", accountHandler.Deposit) // Nova rota
+	r.Post("/accounts/{account_id}/deposit", accountHandler.Deposit)
 	r.Post("/transactions", transactionHandler.MakeTransfer)
+	r.Post("/login", authHandler.Login)
+	r.Group(func(r chi.Router) {
+		r.Use(authMiddleware.Handle)
+		r.Post("/transactions", transactionHandler.MakeTransfer)
+	})
 
 	fmt.Printf("Nexus Finance API running on port %s\n", conf.WebServerPort)
 	http.ListenAndServe(fmt.Sprintf(":%s", conf.WebServerPort), r)
